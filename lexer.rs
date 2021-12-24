@@ -507,13 +507,21 @@ mod braces {
         let mut vec = Vec::new();
         let mut indents = Vec::new();
 
-        implicit_rec(&mut iter, &mut vec, 0, &mut indents)?;
+        impl_braces(&mut iter, &mut vec, 0, &mut indents)?;
 
         Ok(vec)
 
     }
 
-    fn implicit_rec(
+    // fn paren() -> Result<(), (usize, String)> {
+
+    //     let mut indents = Vec::new();
+
+    //     impl_braces(&mut iter, &mut vec, 0, &mut indents)?;
+
+    // }
+
+    fn impl_braces(
 
         iter: &mut Peek<VecIter<(usize, Token, usize, bool)>>,
         vec: &mut Vec<(usize, Token)>,
@@ -574,7 +582,7 @@ mod braces {
                     vec.push((0, Token::BraceL));
                     indents.push(indent);
 
-                    implicit_rec(iter, vec, base, indents)?;
+                    impl_braces(iter, vec, base, indents)?;
 
                     continue;
 
@@ -593,7 +601,7 @@ mod braces {
                         return err!(i, "empty where block");
                     }
 
-                    implicit_rec(iter, vec, base, indents)?;
+                    impl_braces(iter, vec, base, indents)?;
 
                     continue;
 
@@ -661,7 +669,7 @@ mod braces {
                     vec.push((0, Token::BraceL));
                     indents.push(indent);
 
-                    implicit_rec(iter, vec, base, indents)?;
+                    impl_braces(iter, vec, base, indents)?;
 
                     continue;
 
@@ -680,11 +688,21 @@ mod braces {
                         return err!(i, "empty where block");
                     }
     
-                    implicit_rec(iter, vec, base, indents)?;
+                    impl_braces(iter, vec, base, indents)?;
     
                     break;
     
                 },
+
+                // Token::In => {
+
+                //     vec.push((0, Token::BraceR));
+                //     vec.push((i, token));
+                //     indents.pop();
+                    
+                //     break;
+
+                // },
 
                 _ => (),
 
@@ -706,6 +724,15 @@ mod braces {
             }
 
             vec.push((i, token));
+
+            if let Some((_, Token::In, _, _)) = iter.peek() {
+
+                vec.push((0, Token::BraceR));
+                indents.pop();
+
+                break;
+                
+            }
 
         }
 
