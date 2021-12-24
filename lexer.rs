@@ -291,7 +291,7 @@ mod lexeme {
 
                     },
 
-                    '(' | ')' | ',' | ';' | '[' | ']' | '{' | '}' => Token::Punc(x),
+                    '(' | ')' | ',' | ';' | '[' | ']' /* | '{' | '}' */ => Token::Punc(x),
 
                     '"' => Token::String(lex_quotes(i, &mut iter)?),
 
@@ -507,36 +507,66 @@ mod braces {
         let mut vec = Vec::new();
         let mut indents = Vec::new();
 
-        impl_braces(&mut iter, &mut vec, 0, &mut indents)?;
+        if impl_braces(&mut iter, &mut vec, &mut indents, 0)? {
+            
+            if let Some((i, _)) = vec.last() {
+                err!(*i, "unexpected parentheses")?;
+            }
+
+        }
 
         Ok(vec)
 
     }
 
-    // fn paren() -> Result<(), (usize, String)> {
+    fn paren(
 
-    //     let mut indents = Vec::new();
+        iter: &mut Peek<VecIter<(usize, Token, usize, bool)>>,
+        vec: &mut Vec<(usize, Token)>,
 
-    //     impl_braces(&mut iter, &mut vec, 0, &mut indents)?;
+    ) -> Result<(), (usize, String)> {
 
-    // }
+        let mut indents = Vec::new();
+
+        let (_, _, base, _) = iter.peek().ok_or((0, String::from("parentheses unterminated")))?;
+        let base = *base;
+
+        impl_braces(iter, vec, &mut indents, base)?;
+
+        Ok(())
+
+    }
 
     fn impl_braces(
 
         iter: &mut Peek<VecIter<(usize, Token, usize, bool)>>,
         vec: &mut Vec<(usize, Token)>,
-        base: usize,
         indents: &mut Vec<usize>,
+        base: usize,
 
-    ) -> Result<(), (usize, String)> {
+    ) -> Result<bool, (usize, String)> {
 
         let mut assign = false;
 
         while let Some((i, token, indent, first)) = iter.next() {
 
+            if let Token::ParenR = token {
+
+                while indents.pop().is_some() {
+                    vec.push((0, Token::BraceR));
+                }
+
+                vec.push((i, token));
+
+                return Ok(true);
+
+            }
+
             if first && indent == base {
 
                 assign = false;
+
+                dbg!(&token);
 
                 vec.push((i, Token::Semicolon));
 
@@ -550,14 +580,27 @@ mod braces {
                     vec.push((0, Token::BraceR));
                 }
 
-                vec.push((i, Token::Semicolon));
+                if !matches!(token, Token::In) {
+                    vec.push((i, Token::Semicolon));
+                }
+
                 vec.push((i, token));
 
-                return Ok(());
+                return Ok(false);
 
             }
 
             match token {
+
+                Token::ParenL => {
+
+                    vec.push((i, token));
+
+                    paren(iter, vec)?;
+
+                    continue;
+
+                },
 
                 Token::In => {
             
@@ -565,7 +608,7 @@ mod braces {
                     vec.push((i, token));
                     indents.pop();
                     
-                    return Ok(());
+                    return Ok(false);
                     
                 },
 
@@ -582,7 +625,9 @@ mod braces {
                     vec.push((0, Token::BraceL));
                     indents.push(indent);
 
-                    impl_braces(iter, vec, base, indents)?;
+                    if impl_braces(iter, vec, indents, base)? {
+                        return Ok(true);
+                    }
 
                     continue;
 
@@ -601,7 +646,9 @@ mod braces {
                         return err!(i, "empty where block");
                     }
 
-                    impl_braces(iter, vec, base, indents)?;
+                    if impl_braces(iter, vec, indents, base)? {
+                        return Ok(true);
+                    }
 
                     continue;
 
@@ -624,7 +671,9 @@ mod braces {
                     vec.push((0, Token::BraceL));
                     indents.push(indent);
 
-                    guard_clauses(iter, vec, indents)?;
+                    if guard_clauses(iter, vec, indents)? {
+                        return Ok(true);
+                    }
 
                 }
 
@@ -636,7 +685,7 @@ mod braces {
             vec.push((0, Token::BraceR));
         }
 
-        Ok(())
+        Ok(false)
 
     }
 
@@ -646,11 +695,21 @@ mod braces {
         vec: &mut Vec<(usize, Token)>,
         indents: &mut Vec<usize>,
 
-    ) -> Result<(), (usize, String)> {
+    ) -> Result<bool, (usize, String)> {
 
         while let Some((i, token, indent, _)) = iter.next() {
 
             match token {
+
+                Token::ParenL => {
+
+                    vec.push((i, token));
+
+                    paren(iter, vec)?;
+
+                    continue;
+
+                },
 
                 Token::Pipe => {
                     vec.push((i, Token::Semicolon));
@@ -669,7 +728,9 @@ mod braces {
                     vec.push((0, Token::BraceL));
                     indents.push(indent);
 
-                    impl_braces(iter, vec, base, indents)?;
+                    if impl_braces(iter, vec, indents, base)? {
+                        return Ok(true);
+                    }
 
                     continue;
 
@@ -688,21 +749,13 @@ mod braces {
                         return err!(i, "empty where block");
                     }
     
-                    impl_braces(iter, vec, base, indents)?;
+                    if impl_braces(iter, vec, indents, base)? {
+                        return Ok(true);
+                    }
     
                     break;
     
                 },
-
-                // Token::In => {
-
-                //     vec.push((0, Token::BraceR));
-                //     vec.push((i, token));
-                //     indents.pop();
-                    
-                //     break;
-
-                // },
 
                 _ => (),
 
@@ -719,7 +772,7 @@ mod braces {
                 vec.push((i, Token::Semicolon));
                 vec.push((i, token));
 
-                return Ok(());
+                return Ok(false);
 
             }
 
@@ -731,12 +784,12 @@ mod braces {
                 indents.pop();
 
                 break;
-                
+
             }
 
         }
 
-        Ok(())
+        Ok(false)
 
     }
     
