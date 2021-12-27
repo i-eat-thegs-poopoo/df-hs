@@ -481,7 +481,6 @@ mod braces {
     use std::vec::IntoIter as VecIter;
 
     use crate::lexer::Token;
-    use crate::err;
 
     pub fn run(mut iter: Peek<VecIter<(usize, Token, usize, bool)>>) -> Result<Vec<(usize, Token)>, (usize, String)> {
 
@@ -491,6 +490,25 @@ mod braces {
         impl_braces(0, &mut iter, &mut vec, &mut indents, false, false)?;
 
         Ok(vec)
+
+    }
+
+    fn parens(
+
+        iter: &mut Peek<VecIter<(usize, Token, usize, bool)>>,
+        vec: &mut Vec<(usize, Token)>,
+
+    ) -> Result<(), (usize, String)> {
+
+        let mut indents = Vec::new();
+
+        impl_braces(0, iter, vec, &mut indents, false, false)?;
+
+        if let Some((i, token, _, _)) = iter.next() {
+            vec.push((i, token));
+        }
+
+        Ok(())
 
     }
 
@@ -518,6 +536,7 @@ mod braces {
                 vec.push((0, Token::Semicolon));
             }
 
+            let paren = matches!(token, Token::ParenL);
             let block = matches!(token, Token::Do | Token::Let | Token::Of | Token::Where);
             let is_let = token == Token::Let;
             let isnt_where = token != Token::Where;
@@ -527,6 +546,10 @@ mod braces {
             }
 
             vec.push((i, token));
+
+            if paren {
+                parens(iter, vec)?;
+            }
 
             if block {
 
@@ -575,6 +598,7 @@ mod braces {
 
             match token {
 
+                Token::ParenR => return Some(Ok(None)),
                 Token::In if let_expr => return Some(Ok(Some(iter.next().unwrap().0))),
                 Token::In => return Some(Ok(None)),
                 Token::Where if where_clause => return Some(Ok(None)),
