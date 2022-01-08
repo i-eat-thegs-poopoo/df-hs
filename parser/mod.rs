@@ -15,7 +15,8 @@ use crate::lexer::Token;
 pub fn parse(iter: Peek<VecIter<(usize, Token)>>) -> Result<(), Error> {
 // pub fn parse(iter: Peek<VecIter<(usize, Token)>>) -> Result<Vec<(usize, Token)>, Error> {
 
-    top::run(iter);
+    top::run(iter)
+        .and_then(expr::run)?;
     
     Ok(())
 

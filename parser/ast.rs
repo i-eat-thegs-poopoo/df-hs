@@ -12,7 +12,7 @@ pub struct Program {
 
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum Assoc { None, Left, Right }
 
 /*
@@ -79,7 +79,7 @@ pub enum Lexeme {
 
 }
 
-#[derive(Debug)]
+// #[derive(Debug)]
 pub enum Pat {
 
     As(usize, String, Box<Pat>),
@@ -93,6 +93,21 @@ pub enum Pat {
 
     Wildcard(usize),
     
+}
+
+impl std::fmt::Debug for Pat {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        use Pat::*;
+        match self {
+            As(_, v, x) => write!(f, "(@ {} {:?})", v, *x),
+            Cons(_, v, xs) => write!(f, "({} {:?})", v, xs),
+            ConsOp(_, v, x, y) => write!(f, "({} {:?} {:?})", v, *x, *y),
+            Id(_, v) => write!(f, "{}", v),
+            Op(_, v) => write!(f, "({})", v),
+            Lit(_, v) => write!(f, "{:?}", v),
+            Wildcard(_) => f.write_str("_"),
+        }
+    }
 }
 
 #[derive(Debug)]

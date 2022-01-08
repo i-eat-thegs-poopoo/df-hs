@@ -7,13 +7,14 @@ use std::collections::HashMap;
 use crate::Error;
 use crate::lexer::Token;
 use crate::parser::ast;
+use crate::parser::ast::Program;
 use crate::parser::ast::Assoc;
 use crate::eat;
 use crate::eat_if;
 
 use crate::err;
 
-pub fn run(mut iter: Peek<VecIter<(usize, Token)>>) -> Result<(), Error> {
+pub fn run(mut iter: Peek<VecIter<(usize, Token)>>) -> Result<Program, Error> {
 
     eat_if!(iter, Semicolon);
 
@@ -24,10 +25,9 @@ pub fn run(mut iter: Peek<VecIter<(usize, Token)>>) -> Result<(), Error> {
     };
 
     module(&mut iter, &mut program)?;
+    println!("{:?}", &program);
 
-    println!("{:?}", program);
-
-    Ok(())
+    Ok(program)
 
 }
 
