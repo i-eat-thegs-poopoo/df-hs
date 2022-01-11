@@ -1,32 +1,51 @@
 
 use std::iter::Peekable as Peek;
-use std::vec::IntoIter as VecIter;
+use crate::{
+    bang,
+    Error,
+    lexer::{ lexeme::{ LexIter, Token as LexToken }, Token }, TransposeRef,
+};
 
-use crate::Error;
-use crate::lexer::lexeme::Token as LexToken;
-use crate::lexer::Token;
+pub struct ResIter<'a> {
+    inner: Peek<LexIter<'a>>,
+    extra: Option<<Self as Iterator>::Item>,
+}
 
-pub fn run(mut iter: Peek<VecIter<(usize, LexToken, usize, bool)>>) -> Result<Vec<(usize, Token, usize, bool)>, Error> {
+impl <'a> ResIter<'a> {
 
-    let mut vec = Vec::new();
+    pub fn new(iter: LexIter<'a>) -> Self {
+        ResIter { inner: iter.peekable(), extra: None }
+    }
 
-    while let Some((i, lexeme, indent, first)) = iter.next() {
+}
 
+impl <'a> Iterator for ResIter<'a> {
+
+    type Item = Result<(usize, Token, usize, bool), Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+
+        if self.extra.is_some() {
+            return self.extra.take();
+        }
+
+        let mut extra = None;
+        let (i, lexeme, indent, first) = bang!(self.inner.next()?);
         let token = match lexeme {
 
-            LexToken::Number(mut val) => match iter.peek() {
+            LexToken::Number(mut val) => match bang!(self.inner.peek().transpose()) {
 
                 Some((_, LexToken::Symbol(dot), ..)) if dot == "." => {
 
-                    iter.next();
+                    self.inner.next();
 
-                    if let Some((_, LexToken::Number(frac), ..)) = iter.peek() {
+                    if let Some((_, LexToken::Number(frac), ..)) = bang!(self.inner.peek().transpose()) {
                         val.push('.');
                         val.push_str(&frac);
-                        iter.next();
+                        self.inner.next();
                         Token::Frac(val)
                     } else {
-                        vec.push((i, Token::Int(val), indent, first));
+                        extra = Some(Ok((i, Token::Int(val), indent, first)));
                         Token::VarOp(String::from("."))
                     }
 
@@ -108,10 +127,10 @@ pub fn run(mut iter: Peek<VecIter<(usize, LexToken, usize, bool)>>) -> Result<Ve
 
         };
 
-        vec.push((i, token, indent, first));
+        let out = Some(Ok((i, token, indent, first)));
+
+        if extra.is_some() { self.extra = out; extra } else { out }
 
     }
-
-    Ok(vec)
 
 }

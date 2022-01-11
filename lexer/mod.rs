@@ -1,26 +1,25 @@
 
 mod lexeme;
 mod reserved;
-mod braces;
+mod braces_copy;
 
-use std::fmt::Display;
-use std::fmt::Debug;
-use std::iter::Enumerate as Enum;
-use std::iter::Peekable as Peek;
-use std::str::Chars;
+use braces_copy as braces;
 
-use crate::Error;
+use std::{
+    fmt::{ Display, Debug },
+    iter::{ Enumerate as Enum, Peekable as Peek, once },
+    str::Chars,
+};
+use crate::{
+    lexer::{ lexeme::LexIter, reserved::ResIter },
+    Error,
+};
 
 pub fn lex(iter: Peek<Enum<Chars>>) -> Result<Vec<(usize, Token)>, Error> {
 
-    lexeme::run(iter)
-        .map(|x| x.into_iter().peekable())
-        .and_then(reserved::run)
-        .map(|mut x| {
-            x.push((0, Token::EoF, 0, true)); 
-            x.into_iter().peekable()
-        })
-        .and_then(braces::run)
+    braces::run(
+        ResIter::new(LexIter::new(iter)).chain(once(Ok((0, Token::EoF, 0, true)))).peekable()
+    )
 
 }
 

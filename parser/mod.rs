@@ -4,22 +4,38 @@
 
 pub mod ast;
 mod top;
-mod expr;
+mod stmt;
 
-use std::iter::Peekable as Peek;
-use std::vec::IntoIter as VecIter;
-
-use crate::Error;
-use crate::lexer::Token;
+use std::{
+    iter::Peekable as Peek,
+    vec::IntoIter as VecIter,
+};
+use crate::{
+    Error,
+    lexer::Token,
+};
 
 pub fn parse(iter: Peek<VecIter<(usize, Token)>>) -> Result<(), Error> {
 // pub fn parse(iter: Peek<VecIter<(usize, Token)>>) -> Result<Vec<(usize, Token)>, Error> {
 
     top::run(iter)
-        .and_then(expr::run)?;
+        .and_then(stmt::run)?;
     
     Ok(())
 
+}
+
+#[macro_export]
+macro_rules! pattern {
+    ($iter: ident, $program: ident, $sub_level: ident) => {
+        if let Some(v) = $sub_level($iter, $program)? { v } 
+        else { eat!($iter, ParenL, ConsId, VarId, Wildcard, Int, Frac, String); unreachable!() }
+    };
+}
+
+#[macro_export]
+macro_rules! irref {
+    ($pat: path, $e: expr) => { if let $pat(x) = $e { x } else { unreachable!() } };
 }
 
 #[macro_export]

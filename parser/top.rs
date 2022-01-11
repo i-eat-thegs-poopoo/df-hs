@@ -1,37 +1,52 @@
 
-use std::iter;
-use std::iter::Peekable as Peek;
-use std::vec::IntoIter as VecIter;
-use std::collections::HashMap;
-
-use crate::Error;
-use crate::lexer::Token;
-use crate::parser::ast;
-use crate::parser::ast::Program;
-use crate::parser::ast::Assoc;
-use crate::eat;
-use crate::eat_if;
-
-use crate::err;
+use std::{
+    iter,
+    iter::Peekable as Peek,
+    vec::IntoIter as VecIter,
+    collections::HashMap,
+};
+use crate::{
+    err, eat, eat_if,
+    Error,
+    lexer::Token,
+    parser::{ ast, ast::{ Program, Assoc } },
+};
 
 pub fn run(mut iter: Peek<VecIter<(usize, Token)>>) -> Result<Program, Error> {
 
     eat_if!(iter, Semicolon);
 
+    let mut used = Vec::new();
     let mut program = ast::Program {
         module: None,
         fixitys: iter::repeat_with(|| HashMap::new()).take(10).collect(),
         defs: Vec::new(),
     };
 
-    module(&mut iter, &mut program)?;
+    module(&mut iter, &mut program, &mut used)?;
+
+    for op in used.into_iter() {
+
+        let has = program.fixitys.iter()
+            .any(|x| x.get(&op).is_some());
+
+        if !has {
+            unsafe { program.fixitys.get_unchecked_mut(9).insert(op, (0, Assoc::Left)); }
+        }
+
+    }
+
     println!("{:?}", &program);
 
     Ok(program)
 
 }
 
-fn module(iter: &mut Peek<VecIter<(usize, Token)>>, program: &mut ast::Program) -> Result<(), Error> {
+fn module(
+    iter: &mut Peek<VecIter<(usize, Token)>>, 
+    program: &mut ast::Program, 
+    used: &mut Vec<String>,
+) -> Result<(), Error> {
 
     if eat_if!(iter, Module).is_some() {
     
@@ -44,19 +59,23 @@ fn module(iter: &mut Peek<VecIter<(usize, Token)>>, program: &mut ast::Program) 
         program.module = Some((name, Vec::new()));
         
         if eat_if!(iter, BraceR).is_none() {
-            top_level(iter, program)?;
+            top_level(iter, program, used)?;
             return Ok(());
         }
 
     }
 
-    top_level(iter, program)?;
+    top_level(iter, program, used)?;
 
     Ok(())
 
 }
 
-fn top_level(iter: &mut Peek<VecIter<(usize, Token)>>, program: &mut ast::Program) -> Result<(), Error> {
+fn top_level(
+    iter: &mut Peek<VecIter<(usize, Token)>>, 
+    program: &mut ast::Program,
+    used: &mut Vec<String>
+) -> Result<(), Error> {
 
     while iter.peek().is_some() {
 
@@ -99,7 +118,7 @@ fn top_level(iter: &mut Peek<VecIter<(usize, Token)>>, program: &mut ast::Progra
 
         if eat_if!(iter, EoF).is_some() { break }
 
-        if let Some(stmt) = def(iter)? {
+        if let Some(stmt) = def(iter, used)? {
             program.defs.push(stmt);
         }
         
@@ -109,7 +128,10 @@ fn top_level(iter: &mut Peek<VecIter<(usize, Token)>>, program: &mut ast::Progra
 
 }
 
-fn def(iter: &mut Peek<VecIter<(usize, Token)>>) -> Result<Option<ast::Def>, Error> {
+fn def(
+    iter: &mut Peek<VecIter<(usize, Token)>>,
+    used: &mut Vec<String>,
+) -> Result<Option<ast::Def>, Error> {
 
     if eat_if!(iter, Semicolon).is_some() {
         return Ok(None);
@@ -127,6 +149,8 @@ fn def(iter: &mut Peek<VecIter<(usize, Token)>>) -> Result<Option<ast::Def>, Err
             Token::BraceL => braces += 1,
             Token::BraceR if braces == 0 => return err!(i; "unbalanced braces"),
             Token::BraceR => braces -= 1,
+            Token::VarOp(ref x) => used.push(x.clone()),
+            Token::ConsOp(ref x) => used.push(x.clone()),
             _ => (),
         }
 

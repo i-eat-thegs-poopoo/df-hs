@@ -5,8 +5,7 @@ mod emitter;
 mod lexer;
 mod parser;
 
-use std::env;
-use std::fs;
+use std::{ env, fs };
 
 #[macro_export]
 macro_rules! err {
@@ -29,7 +28,41 @@ macro_rules! err {
 
 }
 
+#[macro_export]
+macro_rules! bang {
+    ($e: expr) => {
+        match $e {
+            Ok(o) => o,
+            Err(e) => return Some(Err(e)),
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! bang_ref {
+    ($e: expr) => {
+        match $e {
+            Ok(o) => o,
+            Err(e) => return Some(Err(e.clone())),
+        }
+    };
+}
+
 pub type Error = (Vec<usize>, String);
+
+trait TransposeRef<'a, T, E> {
+    fn transpose(self) -> Result<Option<&'a T>, E>;
+}
+
+impl <'a, T, E: Clone> TransposeRef<'a, T, E> for Option<&'a Result<T, E>> {
+    fn transpose(self) -> Result<Option<&'a T>, E> {
+        match self {
+            Some(Ok(o)) => Ok(Some(o)),
+            Some(Err(e)) => Err(e.clone()),
+            None => Ok(None),
+        }
+    }
+}
 
 fn main() {
 
@@ -41,23 +74,24 @@ fn main() {
 
     match contents {
 
-        Ok(_) => println!("ok"),
-        // Ok(o) => println!("{}", print_tok(o)),
+        // Ok(_) => println!("ok"),
+        Ok(o) => println!("{}", print_tok(o)),
         Err(e) => println!("error at {:?}: {}", e.0, e.1),
 
     };
 
 }
 
-fn compile(program: String) -> Result<(), Error> {
+// fn compile(program: String) -> Result<(), Error> {
 // fn compile(program: String) -> Result<Vec<(Vec<usize>, lexer::Token)>, Error> {
+fn compile(program: String) -> Result<Vec<(usize, lexer::Token)>, Error> {
 
     let iter = program.chars().enumerate().peekable();
 
     Ok(iter)
         .and_then(lexer::lex)
-        .map(|x| x.into_iter().peekable())
-        .and_then(parser::parse)
+        // .map(|x| x.into_iter().peekable())
+        // .and_then(parser::parse)
 
 }
 

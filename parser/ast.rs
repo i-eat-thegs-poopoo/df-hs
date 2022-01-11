@@ -1,6 +1,5 @@
 
 use std::collections::HashMap;
-
 use crate::lexer::Token;
 
 #[derive(Debug)]
@@ -57,25 +56,27 @@ pub struct ExprExtra(usize, Expr, Option<Typesig>, Option<Block>);
 #[derive(Debug)]
 pub enum Expr {
 
-    Lex(usize, Lexeme),
+    Lex(usize, Lexeme), // sub
 
-    Ap(usize, Vec<Expr>),
-    Op(usize, Lexeme, Box<Expr>, Box<Expr>),
-    PartialOpL(usize, Lexeme, Box<Expr>),
-    PartialOpR(usize, Lexeme, Box<Expr>),
+    Ap(usize, Vec<Expr>), // mid
+    Op(usize, Lexeme, Box<Expr>, Box<Expr>), // top
+    PartialOpL(usize, Lexeme, Box<Expr>), // top
+    PartialOpR(usize, Lexeme, Box<Expr>), // top
 
-    Ternary(usize, Box<Expr>, Box<Expr>, Box<Expr>),
-    LetStmt(usize, Block),
-    CaseOf(usize, Box<Expr>, Block),
+    IfStmt(usize, Box<Expr>, Box<Expr>, Box<Expr>), // sub
+    LetStmt(usize, Block), // sub
+    CaseOf(usize, Box<Expr>, Block), // sub
 
 }
 
 #[derive(Debug)]
 pub enum Lexeme {
 
-    Lit(usize, Lit),
-    Id(usize, String),
-    Op(usize, String),
+    Lit(Lit),
+    Cons(String),
+    ConsOp(String),
+    Id(String),
+    Op(String),
 
 }
 
@@ -113,8 +114,8 @@ impl std::fmt::Debug for Pat {
 #[derive(Debug)]
 pub enum Lit {
 
-    Int(usize, String),
-    Frac(usize, String),
-    Str(usize, String),
+    Int(String),
+    Frac(String),
+    Str(String),
 
 }
